@@ -1,83 +1,99 @@
-# 💰 ApexFinance Tracker
+# Ledgerline
 
-A high-performance **Personal Finance Tracker** built with **React 19**, **TypeScript**, **Tailwind CSS**, and **Recharts**, featuring real-time market data powered by **Alpha Vantage API** and an intelligent **Multi-Tier Caching Engine**.
+A personal finance tracker focused on **data visualization and caching**. Track income
+and expenses, watch your cash flow and category splits, and follow holdings with live
+Alpha Vantage quotes that are cached so you never burn the free-tier rate limit.
 
----
+## Stack
 
-## 🚀 Key Features
+| Concern    | Choice                                   |
+| ---------- | ---------------------------------------- |
+| Frontend   | Vite + React 18 + TypeScript             |
+| Styling    | Tailwind CSS                             |
+| Charts     | Recharts                                 |
+| Backend/DB | Convex (queries, mutations, actions)     |
+| Auth       | Email/password, PBKDF2 + bearer sessions |
+| Market data| Alpha Vantage (`GLOBAL_QUOTE`, `TIME_SERIES_DAILY`) |
 
-### 1. 📊 Expense & Income Tracking
-- **Complete CRUD Operations**: Add, edit, categorize, and delete transactions with ease.
-- **Smart Categorization**: Preset & custom categories across essential expenses (Housing, Food, Transport, Utilities, Healthcare, Entertainment, etc.) and income sources (Salary, Freelancing, Dividends, Business, Staking, etc.).
-- **Transaction Details**: Amount, Date, Category, Payment Method (Cash, Card, Transfer, Crypto), Recurring Frequencies (Daily, Weekly, Monthly, Yearly), Status (Cleared / Pending), Notes, and Tags.
-- **Multi-Facet Filtering & Search**: Instant full-text search, category filter, payment method filter, status filter, date range presets, and sorting options.
-- **Bulk Operations**: Bulk selection, deletion, CSV export, and CSV import with parsed preview.
-
-### 2. ⚡ Real-Time Market Intelligence (Alpha Vantage API)
-- **Live Stock & ETF Quotes**: Real-time quotes for AAPL, MSFT, NVDA, TSLA, SPY, VOO, etc.
-- **Crypto & Forex Tracking**: Real-time crypto prices (BTC, ETH, SOL) and Forex rates across 12+ fiat currencies.
-- **Interactive Time Series Charts**: Historical daily charts with area / volume views and range statistics (High, Low, Volume).
-- **Multi-Currency Live Converter**: Fast currency conversions with cached exchange rates.
-- **API Resilience & Fallback Simulator**: High-fidelity dynamic fallback simulation if rate limits occur or when running in offline/demo mode.
-
-### 3. 🧠 Multi-Tier Robust Caching Engine
-- **L1 In-Memory Cache (RAM)**: Sub-millisecond instant lookup for active session data.
-- **L2 Storage Cache (LocalStorage)**: Persistent storage across browser reloads.
-- **Stale-While-Revalidate (SWR)**: Delivers immediate cached responses while refreshing fresh data in the background.
-- **Granular TTL Policies**:
-  - Stock/Crypto Quotes: 3 minutes TTL
-  - FX Rates: 30 minutes TTL
-  - Daily Historical Series: 6 hours TTL
-- **Live Cache Inspector Dashboard**:
-  - Live Cache Hit Ratio % & counter metrics.
-  - Memory & Disk storage size estimators.
-  - Interactive table of cached keys with real-time TTL countdowns.
-  - Raw JSON payload inspector.
-  - Cache Invalidation & Purge controls.
-  - Visual status badges on live components (`[⚡ RAM Cache]`, `[💾 Disk Cache]`, `[🌐 Live API]`).
-
-### 4. 📈 Rich Data Visualizations & Analytics Suite
-- **Cash Flow Trend & Net Accumulation Chart**: Smooth multi-gradient Area/Line charts comparing monthly income vs expenses.
-- **Category Expense Donut Chart**: Interactive donut breakdown with slice highlighting and percentage distribution.
-- **Financial Health Scorecard**: Algorithmic scoring (0–100), savings rate metrics, runway in months, and AI-styled financial advice tips.
-- **Daily Spending Activity Heatmap**: GitHub-style calendar matrix showing 12 weeks of daily spend intensity.
-- **Budget vs. Actual Spending Chart**: Grouped bar chart highlighting monthly limits vs real outflows with variance warnings.
-- **Monthly Savings Margin Comparison**: Income, expense, and retained net savings bar chart.
-- **Investment Portfolio Allocations**: Asset breakdown chart and P&L (Profit & Loss) tracking.
-
-### 5. 🎯 Budgets & Milestone Savings Goals
-- **Monthly Category Budgets**: Category limits with progress bars and dynamic warning thresholds (80% warning, >100% over-budget alerts).
-- **Milestone Savings Goals**: Goal cards with progress rings, target date countdowns, and quick "Deposit / Withdraw" modal with celebratory confetti on completion!
-
----
-
-## 🛠 Tech Stack
-
-- **Frontend**: React 19, TypeScript, Vite
-- **Styling**: Tailwind CSS v4, Lucide React Icons
-- **Charts & Data Viz**: Recharts
-- **Celebration Effects**: Canvas Confetti
-- **Date Handling**: date-fns
-
----
-
-## 📦 Getting Started
-
-### Prerequisites
-- Node.js 18+ (tested on Node v22)
-- npm
-
-### Installation & Run
+## Getting started
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
+bun install
+bun run dev        # starts Convex + Vite together
 ```
 
-The application will be live at `http://localhost:5173`.
+`bun run dev` runs `scripts/dev.mjs`, which owns **both** processes. The Convex local
+backend only lives as long as `convex dev` is running, so it is spawned as a child in
+its own process group and shut down together with Vite. The script waits for the
+deployment to answer `/version` before starting Vite, so the app never boots against a
+dead backend.
+
+The Convex client talks to the **same origin** as the app and relies on the dev-server
+proxy in `vite.config.ts`, so a browser outside the container never needs to reach the
+loopback-only Convex backend directly.
+
+## Caching strategy
+
+Alpha Vantage's free tier allows roughly 25 requests/day, so nothing hits the upstream
+API on render. Every read goes through `cacheThrough` in `convex/market.ts`, backed by
+the `quoteCache` table:
+
+| Data          | TTL   | Rationale                              |
+| ------------- | ----- | -------------------------------------- |
+| Live quotes   | 10 min| Prices move fast                       |
+| Daily series  | 1 hour| One close per day, no benefit refreshing |
+
+Behaviour when upstream cannot be reached:
+
+1. **Fresh cache hit** → served from cache, no upstream call.
+2. **No key / rate limited / network error** → prefer a **stale** cache entry over
+   fabricated data.
+3. **Nothing cached at all** → fall back to a deterministic simulated series, clearly
+   badged as *demo data* in the UI.
+
+The dashboard's "Cache health" panel shows entry counts, freshness and cache age, and
+`market.refresh` invalidates a single symbol on demand.
+
+## Verification
+
+Three suites run against the live app, not mocks:
+
+```bash
+bun tsc -b --noEmit                      # types
+
+# Backend: auth, isolation, aggregates, caching behaviour
+VERIFY_CONVEX_URL=http://127.0.0.1:5173 bun scripts/verify-backend.mjs
+
+# Browser: signup, charts render, no console errors, mobile overflow
+VERIFY_APP_URL=http://127.0.0.1:5173 bun scripts/verify-ui.mjs
+
+# Visual: WCAG AA contrast, overflow, layout across 1440/768/390
+VERIFY_APP_URL=http://127.0.0.1:5173 bun scripts/audit-visual.mjs
+```
+
+The browser suites need Chromium once:
+
+```bash
+bunx playwright install chromium
+```
+
+## Environment
+
+| Variable                    | Required | Purpose                                  |
+| --------------------------- | -------- | ---------------------------------------- |
+| `ALPHA_VANTAGE_API_KEY`     | no       | Real market data; simulated without it   |
+| `VITE_CONVEX_URL`           | prod     | Cloud Convex deployment URL              |
+
+`VITE_CONVEX_URL` is written to `.env.local` automatically for local dev and points at
+the loopback backend. **For a production deploy you must set it to a hosted Convex
+deployment URL** — the static host serves only the frontend bundle and cannot run the
+Convex backend, so the client would otherwise have no API to talk to.
+
+## Deploying
+
+```bash
+freebuff-deploy check     # confirm install/build commands
+```
+
+Install is `bun install`, build is `vite build`, which emits static output to `dist/`.
+Set `VITE_CONVEX_URL` for the hosted deployment before publishing.
