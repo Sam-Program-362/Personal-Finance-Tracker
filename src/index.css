@@ -1,35 +1,110 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
-    --color-bg-primary: #0f172a;
-    --color-bg-card: #1e293b;
-    --color-border: #334155;
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  /* Nothing should ever push the page sideways on a phone. */
+  html,
+  body {
+    @apply overflow-x-hidden;
+  }
+
+  body {
+    @apply bg-ink-950 text-slate-200 font-sans antialiased;
+    background-image:
+      radial-gradient(900px 500px at 15% -10%, rgba(67, 214, 165, 0.1), transparent 60%),
+      radial-gradient(800px 500px at 90% 0%, rgba(240, 185, 92, 0.07), transparent 55%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-mint-400/30 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #080b12;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #26314b;
+    border-radius: 999px;
+    border: 2px solid #080b12;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a4763;
   }
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer components {
+  .panel {
+    @apply min-w-0 rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur-sm shadow-glow;
+  }
+
+  .panel-tight {
+    @apply min-w-0 rounded-xl border border-white/10 bg-ink-900/60;
+  }
+
+  .label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-white/10 bg-ink-850 px-3.5 py-2.5 text-sm text-slate-100
+      placeholder:text-slate-500 outline-none transition
+      focus:border-mint-400/60 focus:ring-2 focus:ring-mint-400/20;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+      transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-mint-400 text-ink-950 hover:bg-mint-300 shadow-[0_10px_30px_-12px_rgba(67,214,165,0.7)];
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/12 bg-white/[0.03] text-slate-200 hover:bg-white/[0.07];
+  }
+
+  .btn-danger {
+    @apply btn border border-rose-400/30 bg-rose-400/10 text-rose-400 hover:bg-rose-400/20;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04]
+      px-2.5 py-1 text-xs font-medium text-slate-300;
+  }
+
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Recharts resets that clash with the dark theme. */
+.recharts-cartesian-axis-tick text {
+  fill: #64748b;
+  font-size: 11px;
 }
-
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+.recharts-cartesian-grid line {
+  stroke: rgba(148, 163, 184, 0.1);
 }
-
-::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.4);
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.7);
+.recharts-surface:focus {
+  outline: none;
 }
